@@ -1,1 +1,8 @@
-node_modules
+# ... (otras entradas) ...
+
+# Archivos de configuración de entorno
+.env
+.env.production
+.flaskenv
+
+# ... (otras entradas) ...
