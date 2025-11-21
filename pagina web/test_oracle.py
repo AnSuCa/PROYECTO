@@ -1,41 +1,34 @@
 import os
 import oracledb
+from dotenv import load_dotenv # <-- NUEVO IMPORT
 
-# --- Configuración de Conexión a Oracle Cloud (¡Usando Variables de Entorno para Seguridad!) ---
-# Estas variables deberían configurarse en tu sistema operativo o en tu entorno de despliegue.
-# Por ejemplo, en Windows PowerShell:
-# $env:DB_USER="ADMIN"
-# $env:DB_PASSWORD="Lacteos#2024" # Contraseña del usuario de la DB
-# $env:DB_SERVICE_NAME="lacteosdb_high" # El nombre de servicio que usas en el tnsnames.ora
-# $env:DB_WALLET_PASSWORD="Lacteos#2024" # Contraseña del wallet (usualmente la misma que la del DB user ADMIN)
+# Cargar variables del archivo .env
+load_dotenv() # <-- NUEVA LÍNEA: Esto carga las variables en os.environ
 
-# Obtener credenciales del entorno
+# --- Configuración de Conexión a Oracle Cloud ---
+# Obtener credenciales del entorno (ahora provienen del .env cargado)
 DB_USER = os.environ.get("DB_USER")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_SERVICE_NAME = os.environ.get("DB_SERVICE_NAME")
-WALLET_PASSWORD = os.environ.get("DB_WALLET_PASSWORD")
+DB_WALLET_PASSWORD = os.environ.get("DB_WALLET_PASSWORD")
+
+# ... (el resto del código sigue igual) ...
 
 # --- CALCULAR RUTA DEL WALLET RELATIVA AL PROYECTO ---
-# Esto hace que la aplicación encuentre el wallet sin importar dónde se clone el proyecto.
-# __file__ es la ruta del archivo actual (test_oracle.py)
-# os.path.dirname(__file__) obtiene el directorio donde está test_oracle.py ('pagina web')
-# os.path.join(...) construye la ruta final: 'pagina web/Wallet_LACTEOSDB'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(BASE_DIR, "Wallet_LACTEOSDB")
 
-# Verificar que todas las variables de entorno estén configuradas
-if not all([DB_USER, DB_PASSWORD, DB_SERVICE_NAME, WALLET_PASSWORD]):
+# Verificar que todas las variables estén configuradas (ahora incluyendo el mensaje de .env)
+if not all([DB_USER, DB_PASSWORD, DB_SERVICE_NAME, DB_WALLET_PASSWORD]):
     raise ValueError("""
     ¡ERROR DE CONFIGURACIÓN!
-    Por favor, asegúrate de configurar las siguientes variables de entorno antes de ejecutar:
+    Por favor, asegúrate de configurar las siguientes variables en tu archivo .env
+    (ubicado en la misma carpeta que test_oracle.py):
     DB_USER, DB_PASSWORD, DB_SERVICE_NAME, DB_WALLET_PASSWORD
-    Ejemplo para Windows PowerShell:
-    $env:DB_USER="ADMIN"
-    $env:DB_PASSWORD="Lacteos#2024"
-    $env:DB_SERVICE_NAME="lacteosdb_high"
-    $env:DB_WALLET_PASSWORD="Lacteos#2024"
+    Y también el archivo .env debe ser cargado al inicio del script.
     """)
 
+# ... (el resto del código es idéntico a la versión anterior) ...
 # Verificar si la carpeta del wallet existe
 if not os.path.isdir(WALLET_DIR):
     raise FileNotFoundError(f"""
@@ -72,7 +65,7 @@ try:
         dsn=DB_SERVICE_NAME,  # Usamos el service name del tnsnames.ora
         config_dir=WALLET_DIR,
         wallet_location=WALLET_DIR,
-        wallet_password=WALLET_PASSWORD
+        wallet_password=DB_WALLET_PASSWORD
     )
 
     print("✅ CONEXIÓN EXITOSA A ORACLE CLOUD")
