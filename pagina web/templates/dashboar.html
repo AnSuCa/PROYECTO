@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head><title>Panel Usuario</title></head>
+<body>
+    <h2>Panel de usuario</h2>
+    <ul>
+        {% for item in items %}
+            <li>{{ item['name'] }} - {{ item['description'] }}</li>
+        {% endfor %}
+    </ul>
+    <a href="/logout">Cerrar sesión</a>
+</body>
+</html>
