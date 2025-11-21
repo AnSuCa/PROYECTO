@@ -1,3 +1,5 @@
+from flask import Flask, render_template, request, redirect, session, url_for
+from werkzeug.security import generate_password_hash # Importar check_password_hash si lo usas para login
 import os
 import oracledb
 from dotenv import load_dotenv # <-- NUEVO IMPORT
@@ -54,7 +56,7 @@ def get_db_connection():
             dsn=DB_SERVICE_NAME,
             config_dir=WALLET_DIR,
             wallet_location=WALLET_DIR,
-            wallet_password=WALLET_PASSWORD
+            wallet_password=DB_WALLET_PASSWORD
         )
         return conn
     except oracledb.DatabaseError as e:
