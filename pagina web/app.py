@@ -310,8 +310,8 @@ def registrar_producto():
     try:
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
-        idcategoria = request.form.get('idcategoria')
-        idunidad = request.form.get('idunidad')
+        idcategoria = request.form.get('idcategoria') or 1
+        idunidad = request.form.get('idunidad') or 1
 
         if not nombre:
             return "El nombre es obligatorio"
@@ -324,10 +324,10 @@ def registrar_producto():
             (NOMBRE, DESCRIPCION, IDCATEGORIA, IDUNIDAD, ACTIVO, IDUSUARIOCREADOR)
             VALUES (:1, :2, :3, :4, 1, :5)
         """, (
-            nombre, 
-            descripcion, 
-            idcategoria, 
-            idunidad, 
+            nombre,
+            descripcion,
+            idcategoria,
+            idunidad,
             session['idusuario']
         ))
 
@@ -341,7 +341,115 @@ def registrar_producto():
         print("Error registrando producto:", e)
         return f"Error al registrar producto: {e}"
 
-    
+ # Actualizar producto desde el dashboard
+@app.route('/producto/actualizar', methods=['POST'])
+def actualizar_producto():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    idproducto = request.form.get('idproducto')
+    nombre = request.form.get('nombre')
+    descripcion = request.form.get('descripcion')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE PRODUCTO
+            SET NOMBRE = :1,
+                DESCRIPCION = :2
+            WHERE IDPRODUCTO = :3
+        """, (nombre, descripcion, idproducto))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return redirect(url_for('user'))
+    except Exception as e:
+        print("Error actualizando producto:", e)
+        return f"Error al actualizar producto: {e}"
+
+
+# Eliminar producto desde el dashboard
+@app.route('/producto/eliminar', methods=['POST'])
+def eliminar_producto():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    idproducto = request.form.get('idproducto')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM PRODUCTO WHERE IDPRODUCTO = :1", (idproducto,))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return redirect(url_for('user'))
+    except Exception as e:
+        print("Error eliminando producto:", e)
+        return f"Error al eliminar producto: {e}"
+
+
+# Registrar envío de producto por correo (solo en BD por ahora)
+@app.route('/producto/enviar_correo', methods=['POST'])
+def enviar_producto_correo():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    idproducto = request.form.get('idproducto')
+    email_destino = request.form.get('email_destino')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Obtenemos datos del producto
+        cursor.execute("""
+            SELECT NOMBRE, DESCRIPCION
+            FROM PRODUCTO
+            WHERE IDPRODUCTO = :1
+        """, (idproducto,))
+        row = cursor.fetchone()
+
+        if not row:
+            cursor.close()
+            conn.close()
+            return "Producto no encontrado"
+
+        nombre_prod, desc_prod = row
+
+        asunto = f"Información del producto: {nombre_prod}"
+        cuerpo = f"Producto: {nombre_prod}\nDescripción: {desc_prod}"
+
+        # Buscamos si el destinatario existe como usuario (opcional)
+        cursor.execute("""
+            SELECT IDUSUARIO FROM USUARIO WHERE EMAIL = :1
+        """, (email_destino,))
+        dest_row = cursor.fetchone()
+        idusuario_destino = dest_row[0] if dest_row else None
+
+        cursor.execute("""
+            INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
+            VALUES (:1, :2, :3, SYSTIMESTAMP, 0)
+        """, (idusuario_destino, asunto, cuerpo))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        # Aquí en el futuro puedes agregar envío real por SMTP
+        return redirect(url_for('user'))
+
+    except Exception as e:
+        print("Error registrando envío de correo:", e)
+        return f"Error al enviar producto por correo: {e}"
+   
 @app.route('/logout')
 def logout():
     session.clear()
