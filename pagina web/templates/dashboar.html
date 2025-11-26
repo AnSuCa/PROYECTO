@@ -202,35 +202,44 @@
                 </div>
             </div>
 
-            <!-- MODAL ENVIAR POR CORREO -->
-            <div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Enviar producto por correo</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-
-                            <div class="modal-body">
-                                <input type="hidden" name="idproducto" value="{{ p[0] }}">
-                                <div class="mb-2">
-                                    <label class="form-label">Correo destino</label>
-                                    <input type="email" name="email_destino" class="form-control" required>
-                                </div>
-                                <p class="small text-muted">
-                                    Se enviará la información del producto <strong>{{ p[1] }}</strong>.
-                                </p>
-                            </div>
-
-                            <div class="modal-footer">
-                                <button type="submit" class="btn btn-success">Registrar envío</button>
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            </div>
-                        </form>
-                    </div>
+<!-- MODAL ENVIAR POR CORREO -->
+<div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Enviar producto por correo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-            </div>
+
+                <div class="modal-body">
+                    <input type="hidden" name="idproducto" value="{{ p[0] }}">
+
+                    <div class="mb-2">
+                        <label class="form-label">Correo destino</label>
+                        <input type="email" name="email_destino" class="form-control" required>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label">Mensaje para el destinatario</label>
+                        <textarea name="mensaje_extra" class="form-control" rows="4"
+                                  placeholder="Ej: Este lote de helado estará disponible hasta el viernes, por favor revisar inventario."></textarea>
+                    </div>
+
+                    <p class="small text-muted mb-0">
+                        Se enviará la información del producto <strong>{{ p[1] }}</strong>.
+                    </p>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Enviar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 
             {% endfor %}
         {% else %}

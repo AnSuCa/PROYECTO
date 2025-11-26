@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import oracledb
 from dotenv import load_dotenv
 import smtplib
 from email.message import EmailMessage
+from email.header import Header
+from email.utils import formataddr
 
 # Cargar variables del archivo .env
 load_dotenv()
@@ -79,31 +81,32 @@ def get_db_connection():
 
 
 # --- Helper para enviar correo con Gmail ---
-def enviar_correo_gmail(destino, asunto, cuerpo):
+def enviar_correo_gmail(destino, asunto, cuerpo_texto, cuerpo_html=None):
+    """Envía correo con texto plano y opcionalmente HTML (UTF-8)."""
     host = os.environ.get("GMAIL_SMTP_HOST")
     port = int(os.environ.get("GMAIL_SMTP_PORT"))
     user = os.environ.get("GMAIL_USER")
     password = os.environ.get("GMAIL_PASSWORD")
 
+    if not (user and password):
+        raise RuntimeError("Faltan GMAIL_USER o GMAIL_PASSWORD en .env")
+
     msg = EmailMessage()
-    msg["From"] = f"Sistema Lácteos <{user}>"
+    msg["From"] = formataddr(("Sistema Lácteos", user))
     msg["To"] = destino
-    msg["Subject"] = asunto
+    msg["Subject"] = str(Header(asunto, "utf-8"))
 
-    # MUY IMPORTANTE para tu error de ñ y acentos 👇
-    msg.set_content(cuerpo, charset="utf-8")
+    # Siempre texto plano (backup para clientes viejos)
+    msg.set_content(cuerpo_texto, charset="utf-8")
 
-    try:
-        with smtplib.SMTP(host, port) as server:
-            server.starttls()  # cifrado TLS
-            server.login(user, password)
-            server.send_message(msg)
+    # Si mandamos HTML, lo agregamos como alternativa
+    if cuerpo_html:
+        msg.add_alternative(cuerpo_html, subtype="html", charset="utf-8")
 
-        print(f"✅ Correo enviado correctamente a {destino}")
-
-    except Exception as e:
-        print("❌ Error enviando correo:", e)
-        raise
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.send_message(msg)
 
 # Página principal
 @app.route('/')
@@ -478,15 +481,18 @@ def enviar_producto_correo():
 
     idproducto = request.form.get('idproducto')
     email_destino = request.form.get('email_destino')
+    mensaje_extra = request.form.get('mensaje_extra', '').strip()
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Obtenemos datos del producto (incluyendo cantidad y unidad)
         cursor.execute("""
-            SELECT NOMBRE, DESCRIPCION, CANTIDAD 
-            FROM PRODUCTO
-            WHERE IDPRODUCTO = :1
+            SELECT P.NOMBRE, P.DESCRIPCION, P.CANTIDAD, U.NOMBRE, U.SIMBOLO
+            FROM PRODUCTO P
+            JOIN UNIDADMEDIDA U ON P.IDUNIDAD = U.IDUNIDAD
+            WHERE P.IDPRODUCTO = :1
         """, (idproducto,))
         row = cursor.fetchone()
 
@@ -495,26 +501,90 @@ def enviar_producto_correo():
             conn.close()
             return "Producto no encontrado"
 
-        nombre_prod, desc_prod, cantidad = row
+        nombre_prod, desc_prod, cant_prod, nombre_uni, simb_uni = row
 
         asunto = f"Información del producto: {nombre_prod}"
-        cuerpo = f"""
-Hola,
 
-Se te ha compartido un producto desde el Sistema Lácteos:
-
-Producto: {nombre_prod}
+        # --- Versión TEXTO PLANO (backup) ---
+        cuerpo_texto = f"""Producto: {nombre_prod}
 Descripción: {desc_prod}
-Cantidad disponible: {cantidad}
+Cantidad disponible: {cant_prod} {simb_uni}
 
-Saludos,
-Sistema Lácteos 🥛
+"""
+
+        if mensaje_extra:
+            cuerpo_texto += f"Mensaje del remitente:\n{mensaje_extra}\n\n"
+
+        cuerpo_texto += "Enviado desde el Sistema Lácteos."
+
+        # --- Versión HTML con diseño lácteo ---
+        cuerpo_html = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>{asunto}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#e3f2fd;font-family:Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellspacing="0" cellpadding="0" 
+               style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.12);">
+          <!-- Encabezado -->
+          <tr>
+            <td align="center" style="background:linear-gradient(135deg,#0277bd,#4fc3f7);padding:20px;color:#ffffff;">
+              <div style="font-size:42px;margin-bottom:8px;">🥛</div>
+              <div style="font-size:22px;font-weight:bold;">Sistema Lácteos</div>
+              <div style="font-size:14px;opacity:0.9;">Detalle del producto registrado</div>
+            </td>
+          </tr>
+
+          <!-- Contenido -->
+          <tr>
+            <td style="padding:24px 28px;">
+              <h2 style="margin:0 0 8px 0;color:#333333;">{nombre_prod}</h2>
+              <p style="margin:0 0 16px 0;color:#555555;">{desc_prod}</p>
+
+              <div style="margin-bottom:16px;padding:12px 16px;background:#e8f5e9;border-radius:10px;">
+                <strong style="color:#1b5e20;">Cantidad disponible:</strong>
+                <span style="color:#1b5e20;">{cant_prod} {simb_uni} ({nombre_uni})</span>
+              </div>
         """
 
-        # 1️⃣ ENVIAR EL CORREO REAL
-        enviar_correo_gmail(email_destino, asunto, cuerpo)
+        if mensaje_extra:
+            cuerpo_html += f"""
+              <div style="margin-bottom:16px;padding:12px 16px;background:#fff8e1;border-radius:10px;">
+                <strong style="color:#ff8f00;">Mensaje del remitente:</strong>
+                <p style="margin:8px 0 0 0;color:#795548;">{mensaje_extra}</p>
+              </div>
+            """
 
-        # 2️⃣ REGISTRAR EN BD SOLO SI EXISTE EL USUARIO
+        cuerpo_html += """
+              <p style="font-size:13px;color:#777777;margin-top:24px;">
+                Este correo fue generado automáticamente por el Sistema Lácteos.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pie -->
+          <tr>
+            <td align="center" style="background:#f5f5f5;padding:12px;font-size:12px;color:#999999;">
+              &copy; """ + str(os.environ.get("APP_YEAR", "2025")) + """ Sistema Lácteos. Todos los derechos reservados.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+        # 1️⃣ Enviar correo (texto + HTML)
+        enviar_correo_gmail(email_destino, asunto, cuerpo_texto, cuerpo_html)
+
+        # 2️⃣ Registrar envío en BD SOLO si el destinatario existe como usuario
         cursor.execute("""
             SELECT IDUSUARIO FROM USUARIO WHERE EMAIL = :1
         """, (email_destino,))
@@ -522,12 +592,10 @@ Sistema Lácteos 🥛
 
         if dest_row:
             idusuario_destino = dest_row[0]
-
             cursor.execute("""
                 INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
                 VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
-            """, (idusuario_destino, asunto, cuerpo))
-
+            """, (idusuario_destino, asunto, cuerpo_texto))
             conn.commit()
 
         cursor.close()
@@ -538,6 +606,7 @@ Sistema Lácteos 🥛
     except Exception as e:
         print("Error enviando producto por correo:", e)
         return f"Error al enviar producto por correo: {e}"
+
 
 # Página general para enviar correos manuales
 @app.route('/correo', methods=['GET', 'POST'])
@@ -558,7 +627,8 @@ def correo_index():
         else:
             try:
                 # 1) Enviar correo
-                enviar_correo_gmail(email_destino, asunto, cuerpo)
+                enviar_correo_gmail(email_destino, asunto, cuerpo, None)
+
 
                 # 2) Registrar envío en la tabla
                 conn = get_db_connection()
