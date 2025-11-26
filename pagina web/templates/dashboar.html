@@ -22,6 +22,102 @@
         .card-footer-btns form {
             margin-right: 4px;
         }
+
+        /* FAB (botón flotante del chatbot) */
+        .chat-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ff9800;
+            color: #fff;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 1050;
+        }
+        .chat-fab:hover {
+            background: #fb8c00;
+        }
+
+        /* Ventana del chatbot */
+        .chat-widget {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 360px;
+            max-height: 520px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            display: none;
+            z-index: 1050;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: #0277bd;
+            color: #fff;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .chat-body {
+            padding: 10px;
+            background: #f5f5f5;
+            height: 320px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+        .chat-footer {
+            padding: 8px;
+            background: #eeeeee;
+        }
+        .msg-user {
+            text-align: right;
+            margin-bottom: 4px;
+        }
+        .msg-user span {
+            display: inline-block;
+            background: #bbdefb;
+            padding: 4px 8px;
+            border-radius: 10px;
+        }
+        .msg-bot {
+            text-align: left;
+            margin-bottom: 4px;
+        }
+        .msg-bot span {
+            display: inline-block;
+            background: #e8f5e9;
+            padding: 4px 8px;
+            border-radius: 10px;
+        }
+        .chat-body pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .chat-select-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+        .chat-select-row select {
+            font-size: 0.8rem;
+        }
+        .chat-footer textarea {
+            resize: none;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -202,44 +298,43 @@
                 </div>
             </div>
 
-<!-- MODAL ENVIAR POR CORREO -->
-<div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">Enviar producto por correo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+            <!-- MODAL ENVIAR POR CORREO -->
+            <div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Enviar producto por correo</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
 
-                <div class="modal-body">
-                    <input type="hidden" name="idproducto" value="{{ p[0] }}">
+                            <div class="modal-body">
+                                <input type="hidden" name="idproducto" value="{{ p[0] }}">
 
-                    <div class="mb-2">
-                        <label class="form-label">Correo destino</label>
-                        <input type="email" name="email_destino" class="form-control" required>
+                                <div class="mb-2">
+                                    <label class="form-label">Correo destino</label>
+                                    <input type="email" name="email_destino" class="form-control" required>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Mensaje para el destinatario</label>
+                                    <textarea name="mensaje_extra" class="form-control" rows="4"
+                                              placeholder="Ej: Este lote de helado estará disponible hasta el viernes, por favor revisar inventario."></textarea>
+                                </div>
+
+                                <p class="small text-muted mb-0">
+                                    Se enviará la información del producto <strong>{{ p[1] }}</strong>.
+                                </p>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-success">Enviar</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            </div>
+                        </form>
                     </div>
-
-                    <div class="mb-2">
-                        <label class="form-label">Mensaje para el destinatario</label>
-                        <textarea name="mensaje_extra" class="form-control" rows="4"
-                                  placeholder="Ej: Este lote de helado estará disponible hasta el viernes, por favor revisar inventario."></textarea>
-                    </div>
-
-                    <p class="small text-muted mb-0">
-                        Se enviará la información del producto <strong>{{ p[1] }}</strong>.
-                    </p>
                 </div>
-
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">Enviar</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
+            </div>
 
             {% endfor %}
         {% else %}
@@ -253,7 +348,163 @@
 
 </div>
 
+<!-- BOTÓN FLOTANTE DEL CHATBOT -->
+<button class="chat-fab" id="chatFab" title="Asistente de productos">
+    🤖
+</button>
+
+<!-- VENTANA DEL CHATBOT -->
+<div class="chat-widget" id="chatWidget">
+    <div class="chat-header">
+        <div class="chat-header-title">
+            Asistente de productos 🥛
+        </div>
+        <button type="button" class="btn btn-sm btn-light" id="chatCloseBtn">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody">
+        <div class="msg-bot">
+            <span><pre>Hola {{ nombre }}, puedo ayudarte a consultar productos.
+Elige un tipo de consulta y pulsa "Preguntar".</pre></span>
+        </div>
+    </div>
+    <div class="chat-footer">
+        <div class="chat-select-row mb-1">
+            <select id="chatTipo" class="form-select form-select-sm">
+                <option value="todos">Todos los productos</option>
+                <option value="activos">Productos activos</option>
+                <option value="categoria">Por categoría</option>
+            </select>
+            <select id="chatCategoria" class="form-select form-select-sm" style="display:none;">
+                {% for c in categorias %}
+                    <option value="{{ c[0] }}">{{ c[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-1">
+            <textarea id="chatPregunta" class="form-control" rows="2"
+                      placeholder="Ej: Muéstrame los productos activos"></textarea>
+        </div>
+        <div class="d-flex">
+            <button class="btn btn-sm btn-primary me-1" id="chatAskBtn">Preguntar</button>
+            <button class="btn btn-sm btn-outline-success" id="chatSendEmailBtn" disabled>
+                Enviar resultado por correo
+            </button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Referencias
+    const chatFab = document.getElementById('chatFab');
+    const chatWidget = document.getElementById('chatWidget');
+    const chatCloseBtn = document.getElementById('chatCloseBtn');
+    const chatBody = document.getElementById('chatBody');
+    const chatTipo = document.getElementById('chatTipo');
+    const chatCategoria = document.getElementById('chatCategoria');
+    const chatPregunta = document.getElementById('chatPregunta');
+    const chatAskBtn = document.getElementById('chatAskBtn');
+    const chatSendEmailBtn = document.getElementById('chatSendEmailBtn');
+
+    let ultimoTipo = null;
+    let ultimoFiltro = null;
+    let ultimoTextoPregunta = null;
+
+    // Mostrar / ocultar widget
+    chatFab.addEventListener('click', () => {
+        chatWidget.style.display = 'block';
+    });
+    chatCloseBtn.addEventListener('click', () => {
+        chatWidget.style.display = 'none';
+    });
+
+    // Mostrar select de categoría solo cuando aplica
+    chatTipo.addEventListener('change', () => {
+        if (chatTipo.value === 'categoria') {
+            chatCategoria.style.display = 'block';
+        } else {
+            chatCategoria.style.display = 'none';
+        }
+    });
+
+    function agregarMensaje(clase, texto) {
+        const div = document.createElement('div');
+        div.className = clase;
+        const span = document.createElement('span');
+        const pre = document.createElement('pre');
+        pre.textContent = texto;
+        span.appendChild(pre);
+        div.appendChild(span);
+        chatBody.appendChild(div);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    chatAskBtn.addEventListener('click', async () => {
+        const tipo = chatTipo.value;
+        const filtro = (tipo === 'categoria') ? chatCategoria.value : null;
+        const texto = chatPregunta.value.trim() || "Consulta de productos";
+
+        agregarMensaje('msg-user', texto);
+
+        try {
+            const resp = await fetch("{{ url_for('chatbot') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tipo: tipo, filtro: filtro })
+            });
+
+            const data = await resp.json();
+            if (!data.ok) {
+                agregarMensaje('msg-bot', "Error: " + (data.error || 'desconocido'));
+                return;
+            }
+
+            agregarMensaje('msg-bot', data.respuesta || 'Sin respuesta');
+
+            ultimoTipo = tipo;
+            ultimoFiltro = filtro;
+            ultimoTextoPregunta = texto;
+            chatSendEmailBtn.disabled = false;
+
+        } catch (err) {
+            console.error(err);
+            agregarMensaje('msg-bot', "Ocurrió un error al consultar.");
+        }
+    });
+
+    chatSendEmailBtn.addEventListener('click', async () => {
+        if (!ultimoTipo) return;
+
+        chatSendEmailBtn.disabled = true;
+        chatSendEmailBtn.textContent = "Enviando...";
+
+        try {
+            const resp = await fetch("{{ url_for('chatbot_enviar') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tipo: ultimoTipo,
+                    filtro: ultimoFiltro,
+                    mensaje_usuario: ultimoTextoPregunta
+                })
+            });
+
+            const data = await resp.json();
+            if (data.ok) {
+                agregarMensaje('msg-bot', "He enviado el resultado a tu correo ✅");
+            } else {
+                agregarMensaje('msg-bot', "No se pudo enviar el correo: " + (data.error || 'desconocido'));
+            }
+        } catch (err) {
+            console.error(err);
+            agregarMensaje('msg-bot', "Error al enviar el correo.");
+        } finally {
+            chatSendEmailBtn.disabled = false;
+            chatSendEmailBtn.textContent = "Enviar resultado por correo";
+        }
+    });
+</script>
 
 </body>
 </html>

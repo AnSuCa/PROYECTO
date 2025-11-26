@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Chatbot - Sistema Lácteos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <style>
+        body { background: #e3f2fd; }
+        .navbar { background-color: #0277bd; }
+        .navbar a { color: white !important; }
+        .chat-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+        }
+        .chat-window {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1rem;
+            background: #fafafa;
+            height: 360px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+        }
+        .msg-user {
+            text-align: right;
+            margin-bottom: 0.5rem;
+        }
+        .msg-user span {
+            display: inline-block;
+            background: #bbdefb;
+            padding: 6px 10px;
+            border-radius: 12px;
+        }
+        .msg-bot {
+            text-align: left;
+            margin-bottom: 0.5rem;
+        }
+        .msg-bot span {
+            display: inline-block;
+            background: #e8f5e9;
+            padding: 6px 10px;
+            border-radius: 12px;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('user') }}">Sistema Lácteos</a>
+        <div class="d-flex ms-auto align-items-center">
+            <span class="text-white me-3">Hola {{ nombre }}</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Cerrar sesión</a>
+        </div>
+    </div>
+</nav>
+
+<div class="chat-container">
+    <h4 class="mb-3">Asistente de productos lácteos 🥛</h4>
+
+    <div class="mb-3">
+        <label class="form-label">Tipo de pregunta</label>
+        <select id="tipoPregunta" class="form-select">
+            <option value="todos">Ver todos los productos</option>
+            <option value="activos">Ver solo productos activos</option>
+            <option value="categoria">Ver productos por categoría</option>
+        </select>
+    </div>
+
+    <div class="mb-3" id="bloqueCategoria" style="display:none;">
+        <label class="form-label">Selecciona categoría</label>
+        <select id="categoriaSelect" class="form-select">
+            {% for c in categorias %}
+                <option value="{{ c[0] }}">{{ c[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Pregunta (texto que verás en el chat)</label>
+        <input type="text" id="textoPregunta" class="form-control"
+               placeholder="Ej: Muéstrame los productos activos">
+    </div>
+
+    <div class="d-flex mb-3">
+        <button id="btnPreguntar" class="btn btn-primary me-2">Preguntar</button>
+        <button id="btnEnviarCorreo" class="btn btn-outline-success" disabled>
+            Enviar último resultado por correo
+        </button>
+    </div>
+
+    <div class="chat-window" id="chatWindow">
+        <div class="msg-bot">
+            <span>Hola {{ nombre }}, soy tu asistente de productos. Elige un tipo de pregunta y pulsa "Preguntar".</span>
+        </div>
+    </div>
+</div>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const tipoPregunta = document.getElementById('tipoPregunta');
+    const bloqueCategoria = document.getElementById('bloqueCategoria');
+    const categoriaSelect = document.getElementById('categoriaSelect');
+    const textoPregunta = document.getElementById('textoPregunta');
+    const chatWindow = document.getElementById('chatWindow');
+    const btnPreguntar = document.getElementById('btnPreguntar');
+    const btnEnviarCorreo = document.getElementById('btnEnviarCorreo');
+
+    let ultimoTipo = null;
+    let ultimoFiltro = null;
+    let ultimoTextoPregunta = null;
+
+    tipoPregunta.addEventListener('change', () => {
+        if (tipoPregunta.value === 'categoria') {
+            bloqueCategoria.style.display = 'block';
+        } else {
+            bloqueCategoria.style.display = 'none';
+        }
+    });
+
+    function agregarMensaje(clase, texto) {
+        const div = document.createElement('div');
+        div.className = clase;
+        const span = document.createElement('span');
+        const pre = document.createElement('pre');
+        pre.textContent = texto;
+        span.appendChild(pre);
+        div.appendChild(span);
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    btnPreguntar.addEventListener('click', async () => {
+        const tipo = tipoPregunta.value;
+        const filtro = (tipo === 'categoria') ? categoriaSelect.value : null;
+        const texto = textoPregunta.value.trim() || "Consulta de productos";
+
+        // mostramos la pregunta en el chat
+        agregarMensaje('msg-user', texto);
+
+        try {
+            const resp = await fetch("{{ url_for('chatbot') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tipo: tipo, filtro: filtro })
+            });
+
+            const data = await resp.json();
+            if (!data.ok) {
+                agregarMensaje('msg-bot', "Hubo un error: " + (data.error || 'desconocido'));
+                return;
+            }
+
+            agregarMensaje('msg-bot', data.respuesta || 'Sin respuesta');
+
+            // guardamos el contexto de la última consulta para poder enviarla por correo
+            ultimoTipo = tipo;
+            ultimoFiltro = filtro;
+            ultimoTextoPregunta = texto;
+            btnEnviarCorreo.disabled = false;
+
+        } catch (err) {
+            console.error(err);
+            agregarMensaje('msg-bot', "Ocurrió un error al consultar.");
+        }
+    });
+
+    btnEnviarCorreo.addEventListener('click', async () => {
+        if (!ultimoTipo) return;
+
+        btnEnviarCorreo.disabled = true;
+        btnEnviarCorreo.textContent = "Enviando...";
+
+        try {
+            const resp = await fetch("{{ url_for('chatbot_enviar') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tipo: ultimoTipo,
+                    filtro: ultimoFiltro,
+                    mensaje_usuario: ultimoTextoPregunta
+                })
+            });
+
+            const data = await resp.json();
+            if (data.ok) {
+                agregarMensaje('msg-bot', "Te he enviado el resultado por correo ✅");
+            } else {
+                agregarMensaje('msg-bot', "No se pudo enviar el correo: " + (data.error || 'desconocido'));
+            }
+        } catch (err) {
+            console.error(err);
+            agregarMensaje('msg-bot', "Error al enviar el correo.");
+        } finally {
+            btnEnviarCorreo.disabled = false;
+            btnEnviarCorreo.textContent = "Enviar último resultado por correo";
+        }
+    });
+</script>
+
+</body>
+</html>

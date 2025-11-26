@@ -108,6 +108,182 @@ def enviar_correo_gmail(destino, asunto, cuerpo_texto, cuerpo_html=None):
         server.login(user, password)
         server.send_message(msg)
 
+#CHATBOt
+def obtener_productos_chat(tipo, filtro=None):
+    """
+    Devuelve una lista de productos según el tipo de pregunta del chatbot.
+    tipo:
+      - 'todos'   -> todos los productos
+      - 'activos' -> solo activos
+      - 'categoria' -> por id de categoría (filtro = idcategoria)
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    base_sql = """
+        SELECT 
+            P.IDPRODUCTO,
+            P.NOMBRE,
+            P.DESCRIPCION,
+            P.CANTIDAD,
+            U.SIMBOLO,
+            C.NOMBRE AS NOMBRE_CATEGORIA
+        FROM PRODUCTO P
+        JOIN UNIDADMEDIDA U ON P.IDUNIDAD = U.IDUNIDAD
+        JOIN CATEGORIAPRODUCTO C ON P.IDCATEGORIA = C.IDCATEGORIA
+    """
+
+    if tipo == "activos":
+        sql = base_sql + " WHERE P.ACTIVO = 1 ORDER BY P.NOMBRE"
+        cursor.execute(sql)
+    elif tipo == "categoria" and filtro:
+        sql = base_sql + " WHERE P.IDCATEGORIA = :1 ORDER BY P.NOMBRE"
+        cursor.execute(sql, (filtro,))
+    else:  # 'todos' u otro
+        sql = base_sql + " ORDER BY P.NOMBRE"
+        cursor.execute(sql)
+
+    filas = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Lo convertimos en una lista de diccionarios más cómoda
+    productos = []
+    for row in filas:
+        productos.append({
+            "id": row[0],
+            "nombre": row[1],
+            "descripcion": row[2],
+            "cantidad": row[3],
+            "simbolo": row[4],
+            "categoria": row[5],
+        })
+    return productos
+@app.route('/chat', methods=['GET'])
+def chat():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    # Traemos categorías para usarlas en el combo del chat
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT IDCATEGORIA, NOMBRE
+            FROM CATEGORIAPRODUCTO
+            ORDER BY NOMBRE
+        """)
+        categorias = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print("Error listando categorías para chat:", e)
+        categorias = []
+
+    return render_template(
+        'chat.html',
+        nombre=session.get('nombre'),
+        categorias=categorias
+    )
+@app.route('/chatbot', methods=['POST'])
+def chatbot():
+    if 'idusuario' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+
+    data = request.get_json() or {}
+    tipo = data.get('tipo')           # 'todos', 'activos', 'categoria'
+    filtro = data.get('filtro')       # idcategoria (opcional)
+
+    try:
+        productos = obtener_productos_chat(tipo, filtro)
+
+        if not productos:
+            respuesta = "No encontré productos para esa consulta."
+        else:
+            # Armamos una respuesta tipo texto
+            lineas = []
+            for p in productos:
+                linea = f"- {p['nombre']}: {p['descripcion']} ({p['cantidad']} {p['simbolo']}, categoría: {p['categoria']})"
+                lineas.append(linea)
+            respuesta = "\n".join(lineas)
+
+        return jsonify({
+            "ok": True,
+            "respuesta": respuesta,
+        })
+
+    except Exception as e:
+        print("Error en chatbot:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+@app.route('/chatbot/enviar', methods=['POST'])
+def chatbot_enviar():
+    if 'idusuario' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+
+    data = request.get_json() or {}
+    tipo = data.get('tipo')
+    filtro = data.get('filtro')
+    mensaje_usuario = data.get('mensaje_usuario', '')  # texto que escribió el usuario en el chat
+
+    try:
+        # 1) Obtenemos los productos igual que en la respuesta del bot
+        productos = obtener_productos_chat(tipo, filtro)
+
+        if not productos:
+            return jsonify({"ok": False, "error": "No hay productos para enviar."})
+
+        # 2) Armamos cuerpo de correo
+        lineas = []
+        for p in productos:
+            linea = f"- {p['nombre']}: {p['descripcion']} ({p['cantidad']} {p['simbolo']}, categoría: {p['categoria']})"
+            lineas.append(linea)
+        lista_productos = "\n".join(lineas)
+
+        cuerpo_texto = f"""Consulta en el chatbot:
+
+{mensaje_usuario or 'Consulta de productos.'}
+
+Productos encontrados:
+{lista_productos}
+
+Enviado desde el Sistema Lácteos.
+"""
+
+        # Un HTML sencillo (puedes refinarlo igual que el correo de producto)
+        cuerpo_html = f"""
+        <html><body>
+        <h2>Resultado de la consulta en el chatbot</h2>
+        <p><strong>Pregunta:</strong> {mensaje_usuario or 'Consulta de productos.'}</p>
+        <ul>
+        {''.join([f"<li><strong>{p['nombre']}</strong>: {p['descripcion']} ({p['cantidad']} {p['simbolo']}, categoría: {p['categoria']})</li>" for p in productos])}
+        </ul>
+        <p style="font-size:12px;color:#777;">Enviado desde el Sistema Lácteos.</p>
+        </body></html>
+        """
+
+        # 3) Buscamos el correo del usuario logueado
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT EMAIL FROM USUARIO WHERE IDUSUARIO = :1", (session['idusuario'],))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row or not row[0]:
+            return jsonify({"ok": False, "error": "No se encontró el correo del usuario."})
+
+        email_destino = row[0]
+        asunto = "Resultado de tu consulta en el chatbot - Sistema Lácteos"
+
+        # 4) Enviamos correo
+        enviar_correo_gmail(email_destino, asunto, cuerpo_texto, cuerpo_html)
+
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print("Error enviando correo desde chatbot:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 # Página principal
 @app.route('/')
 def home():
