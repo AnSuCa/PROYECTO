@@ -1,11 +1,13 @@
-from flask import Flask, render_template, request, redirect, session, url_for
-from werkzeug.security import generate_password_hash # Importar check_password_hash si lo usas para login
+from flask import Flask,app, render_template, request, redirect, session, url_for
+from werkzeug.security import  generate_password_hash, check_password_hash # Importar check_password_hash si lo usas para login
 import os
 import oracledb
 from dotenv import load_dotenv # <-- NUEVO IMPORT
 
 # Cargar variables del archivo .env
 load_dotenv() # <-- NUEVA LÍNEA: Esto carga las variables en os.environ
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 # --- Configuración de Conexión a Oracle Cloud ---
 # Obtener credenciales del entorno (ahora provienen del .env cargado)
@@ -71,14 +73,16 @@ def get_db_connection():
 @app.route('/')
 def home():
     return render_template('index.html')
-
-# Registro
+#Registro
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        email = request.form['email']
-        password = request.form['password']
+        nombre = request.form.get('nombre')
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        if not nombre or not email or not password:
+            return render_template('register.html', error="Completa todos los campos")
 
         # Encriptamos la contraseña
         password_hash = generate_password_hash(password)
@@ -96,55 +100,72 @@ def register():
             cursor.close()
             conn.close()
 
+            # Muestra mensaje en la misma página
             return render_template('register.html', mensaje="Usuario registrado exitosamente ✅")
 
         except oracledb.IntegrityError:
+            # Por ejemplo, si Email es UNIQUE
             return render_template('register.html', error="El correo ya está registrado")
 
         except oracledb.Error as e:
-            print("Error Oracle:", e)
-            return render_template('register.html', error=f"Error al registrar usuario: {e}") # Mostrar el error real
+            print("Error Oracle en registro:", e)
+            return render_template('register.html', error=f"Error al registrar usuario: {e}")
         except Exception as e:
             print("Error general en registro:", e)
             return render_template('register.html', error=f"Error inesperado: {e}")
 
+    # GET
     return render_template('register.html')
+
 
 # Inicio de sesión
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        usuario_form = request.form['usuario'] 
-        contraseña_form = request.form['Contraseña']
+        email_form = request.form.get('usuario')
+        password_form = request.form.get('password')
+
+        # DEBUG opcional:
+        print("DEBUG login email:", email_form)
+        print("DEBUG login pass:", password_form)
+
+        if not email_form or not password_form:
+            return render_template('login.html', error="Completa todos los campos")
 
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-
             cursor.execute(
                 """
-                SELECT usuario, categoria, Contraseña 
-                FROM cliente
-                WHERE usuario = :1
+                SELECT IDUSUARIO, NOMBRE, PASSWORDHASH, ACTIVO
+                FROM USUARIO
+                WHERE EMAIL = :1
                 """,
-                (usuario_form,)
+                (email_form,)
             )
             row = cursor.fetchone()
             cursor.close()
             conn.close()
 
-            if row:
-                if row[2] == contraseña_form: 
-                    session['usuario'] = row[0]
-                    session['categoria'] = row[1]
+            print("DEBUG row:", row)  # para ver qué trae
 
-                    if session['categoria'] == 'admin':
-                        return redirect('/admin')
-                    else:
-                        return redirect('/user')
+            if row:
+                idusuario, nombre, password_db, activo = row
+
+                if check_password_hash(password_db, password_form):
+                    session.clear()
+                    session['idusuario'] = idusuario
+                    session['nombre'] = nombre
+                    session['activo'] = activo
+                    session['categoria'] = 'usuario'
+
+                    print("DEBUG: login OK, redirigiendo a /user")
+                    return redirect(url_for('user'))
                 else:
+                    print("DEBUG: contraseña incorrecta")
                     return render_template('login.html', error="Usuario o contraseña incorrectos")
             else:
+                print("DEBUG: no se encontró usuario")
                 return render_template('login.html', error="Usuario o contraseña incorrectos")
 
         except oracledb.Error as e:
@@ -155,6 +176,7 @@ def login():
             return render_template('login.html', error=f"Error inesperado: {e}")
     else:
         return render_template('login.html')
+
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -179,7 +201,7 @@ def admin():
             )
             conn.commit()
 
-        cursor.execute("SELECT * FROM items")
+        cursor.execute("SELECT * FROM producto")
         items = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -195,24 +217,32 @@ def admin():
 
 @app.route('/user')
 def user():
-    if session.get('categoria') != 'usuario': 
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    if session.get('categoria') != 'usuario':
         return "Acceso denegado"
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM items")
+
+        cursor.execute("SELECT * FROM producto")
         items = cursor.fetchall()
+
         cursor.close()
         conn.close()
-        return render_template('dashboar.html', items=items)
 
+        return render_template('dashboar.html', 
+                               items=items, 
+                               nombre=session.get('nombre'))
     except oracledb.Error as e:
         print("Error Oracle en user:", e)
         return f"Error en la sección de usuario: {e}"
     except Exception as e:
         print("Error general en user:", e)
         return f"Error inesperado en usuario: {e}"
+
 
 
 @app.route('/delete', methods=['GET', 'POST'])
@@ -226,10 +256,10 @@ def delete():
 
         if request.method == 'POST':
             ide = request.form['llav']
-            cursor.execute("DELETE FROM items WHERE id = :1", (ide,))
+            cursor.execute("DELETE FROM producto WHERE id = :1", (ide,))
             conn.commit()
 
-        cursor.execute("SELECT * FROM items")
+        cursor.execute("SELECT * FROM producto")
         items = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -256,7 +286,7 @@ def update():
         cursor = conn.cursor()
         cursor.execute(
             """
-            UPDATE items
+            UPDATE producto
             SET nombre = :1, descripcion = :2
             WHERE id = :3
             """,
