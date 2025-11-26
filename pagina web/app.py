@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import oracledb
 from dotenv import load_dotenv
+import smtplib
+from email.message import EmailMessage
 
 # Cargar variables del archivo .env
 load_dotenv()
@@ -10,7 +12,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
-# Evitar que el navegador cachee páginas protegidas (para que "Atrás" no muestre el dashboard tras logout)
+# Evitar cache del navegador (para que "Atrás" no muestre páginas viejas)
 @app.after_request
 def no_cache(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -24,6 +26,12 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_SERVICE_NAME = os.environ.get("DB_SERVICE_NAME")
 DB_WALLET_PASSWORD = os.environ.get("DB_WALLET_PASSWORD")
 
+# --- Configuración SMTP Gmail ---
+GMAIL_SMTP_HOST = os.environ.get("GMAIL_SMTP_HOST", "smtp.gmail.com")
+GMAIL_SMTP_PORT = int(os.environ.get("GMAIL_SMTP_PORT", "587"))
+GMAIL_USER = os.environ.get("GMAIL_USER")
+GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
+
 # --- CALCULAR RUTA DEL WALLET RELATIVA AL PROYECTO ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(BASE_DIR, "Wallet_LACTEOSDB")
@@ -32,9 +40,7 @@ WALLET_DIR = os.path.join(BASE_DIR, "Wallet_LACTEOSDB")
 if not all([DB_USER, DB_PASSWORD, DB_SERVICE_NAME, DB_WALLET_PASSWORD]):
     raise ValueError("""
     ¡ERROR DE CONFIGURACIÓN!
-    Por favor, asegúrate de configurar las siguientes variables en tu archivo .env
-    (ubicado en la misma carpeta que app.py):
-    DB_USER, DB_PASSWORD, DB_SERVICE_NAME, DB_WALLET_PASSWORD
+    Debes configurar en .env: DB_USER, DB_PASSWORD, DB_SERVICE_NAME, DB_WALLET_PASSWORD
     """)
 
 # Verificar si la carpeta del wallet existe
@@ -42,7 +48,6 @@ if not os.path.isdir(WALLET_DIR):
     raise FileNotFoundError(f"""
     ¡ERROR: La carpeta del Wallet no se encuentra!
     Se esperaba en: {WALLET_DIR}
-    Asegúrate de que la carpeta 'Wallet_LACTEOSDB' exista en la misma ubicación que app.py.
     """)
 
 # Limpiar posibles influencias de Oracle local
@@ -54,7 +59,8 @@ if "TNS_ADMIN" in os.environ:
 # Forzar TNS_ADMIN para que el driver sepa dónde buscar el tnsnames.ora
 os.environ["TNS_ADMIN"] = WALLET_DIR
 
-# --- Función de Conexión a la base de datos Oracle ---
+
+# --- Conexión a la BD ---
 def get_db_connection():
     try:
         conn = oracledb.connect(
@@ -68,8 +74,30 @@ def get_db_connection():
         return conn
     except oracledb.DatabaseError as e:
         error_obj, = e.args
-        print(f"❌ Error de conexión a la base de datos: Código {error_obj.code}, Mensaje: {error_obj.message}")
+        print(f"❌ Error de conexión a la BD: Código {error_obj.code}, Mensaje: {error_obj.message}")
         raise
+
+
+# --- Helper para enviar correo con Gmail ---
+def enviar_correo_gmail(destino, asunto, cuerpo):
+    from email.header import Header
+    from email.utils import formataddr
+
+    if not (GMAIL_USER and GMAIL_PASSWORD):
+        raise RuntimeError("Faltan GMAIL_USER o GMAIL_PASSWORD en .env")
+
+    msg = EmailMessage()
+    msg["From"] = formataddr(("Sistema Lácteos", GMAIL_USER))
+    msg["To"] = destino
+    msg["Subject"] = str(Header(asunto, "utf-8"))
+    msg.set_content(cuerpo, subtype="plain", charset="utf-8")
+
+    with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT) as smtp:
+        smtp.starttls()
+        smtp.login(GMAIL_USER, GMAIL_PASSWORD)
+        smtp.send_message(msg)
+
+
 
 # Página principal
 @app.route('/')
@@ -154,11 +182,9 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        # Validación simple
         if not nombre or not email or not password:
             return render_template('register.html', error="Completa todos los campos")
 
-        # Encriptar contraseña
         password_hash = generate_password_hash(password)
 
         try:
@@ -186,6 +212,7 @@ def register():
             return render_template('register.html', error=f"Error inesperado: {e}")
 
     return render_template('register.html')
+
 
 # Panel admin (si lo usas)
 @app.route('/admin', methods=['GET', 'POST'])
@@ -226,6 +253,7 @@ def admin():
         print("Error general en admin:", e)
         return f"Error inesperado en administración: {e}"
 
+
 # Eliminar producto (admin)
 @app.route('/delete', methods=['POST'])
 def delete():
@@ -249,6 +277,7 @@ def delete():
     except Exception as e:
         print("Error general en delete:", e)
         return f"Error inesperado al eliminar: {e}"
+
 
 # Actualizar producto (admin)
 @app.route('/update', methods=['POST'])
@@ -280,11 +309,11 @@ def update():
         print("Error general en update:", e)
         return f"Error inesperado al actualizar: {e}"
 
+
 # Login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # Si ya hay sesión y es solo una visita GET (por ejemplo, el usuario presionó "Atrás"),
-    # lo mandamos directo al dashboard
+    # Si ya hay sesión y es solo una visita GET (ej: botón "Atrás")
     if request.method == 'GET' and 'idusuario' in session:
         return redirect(url_for('user'))
 
@@ -329,8 +358,8 @@ def login():
             print("Error general en login:", e)
             return render_template('login.html', error=f"Error inesperado: {e}")
 
-    # GET sin sesión → mostrar login
     return render_template('login.html')
+
 
 # Registrar productos desde el dashboard
 @app.route('/registrar_producto', methods=['POST'])
@@ -343,7 +372,7 @@ def registrar_producto():
         descripcion = request.form.get('descripcion')
         idcategoria = request.form.get('idcategoria')
         idunidad = request.form.get('idunidad')
-        cantidad = request.form.get('cantidad') or 0  # nuevo
+        cantidad = request.form.get('cantidad') or 0
 
         if not (nombre and idcategoria and idunidad):
             return "Faltan datos (nombre, categoría o unidad)"
@@ -385,7 +414,7 @@ def actualizar_producto():
     nombre = request.form.get('nombre')
     descripcion = request.form.get('descripcion')
     cantidad = request.form.get('cantidad')
-    idunidad = request.form.get('idunidad')  # 👈 nuevo
+    idunidad = request.form.get('idunidad')
 
     try:
         conn = get_db_connection()
@@ -408,6 +437,7 @@ def actualizar_producto():
     except Exception as e:
         print("Error actualizando producto:", e)
         return f"Error al actualizar producto: {e}"
+
 
 # Eliminar producto desde el dashboard
 @app.route('/producto/eliminar', methods=['POST'])
@@ -432,7 +462,9 @@ def eliminar_producto():
         print("Error eliminando producto:", e)
         return f"Error al eliminar producto: {e}"
 
-# Registrar envío de producto por correo (solo en BD por ahora)
+
+# Registrar envío de producto por correo (desde tarjeta del dashboard)
+
 @app.route('/producto/enviar_correo', methods=['POST'])
 def enviar_producto_correo():
     if 'idusuario' not in session:
@@ -447,7 +479,7 @@ def enviar_producto_correo():
 
         # Obtenemos datos del producto
         cursor.execute("""
-            SELECT NOMBRE, DESCRIPCION
+            SELECT NOMBRE, DESCRIPCION, CANTIDAD
             FROM PRODUCTO
             WHERE IDPRODUCTO = :1
         """, (idproducto,))
@@ -458,12 +490,20 @@ def enviar_producto_correo():
             conn.close()
             return "Producto no encontrado"
 
-        nombre_prod, desc_prod = row
+        nombre_prod, desc_prod, cant_prod = row
 
+        # Armamos asunto y cuerpo (con tildes sin problema)
         asunto = f"Información del producto: {nombre_prod}"
-        cuerpo = f"Producto: {nombre_prod}\nDescripción: {desc_prod}"
+        cuerpo = (
+            f"Producto: {nombre_prod}\n"
+            f"Descripción: {desc_prod}\n"
+            f"Cantidad: {cant_prod}"
+        )
 
-        # Buscamos si el destinatario existe como usuario (opcional)
+        # 1) Enviar correo real por Gmail
+        enviar_correo_gmail(email_destino, asunto, cuerpo)
+
+        # 2) Registrar envío en ENVIOCORREO
         cursor.execute("""
             SELECT IDUSUARIO FROM USUARIO WHERE EMAIL = :1
         """, (email_destino,))
@@ -472,32 +512,82 @@ def enviar_producto_correo():
 
         cursor.execute("""
             INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
-            VALUES (:1, :2, :3, SYSTIMESTAMP, 0)
+            VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
         """, (idusuario_destino, asunto, cuerpo))
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        # Aquí en el futuro puedes agregar envío real por SMTP
         return redirect(url_for('user'))
 
     except Exception as e:
         print("Error registrando envío de correo:", e)
         return f"Error al enviar producto por correo: {e}"
 
+# Página general para enviar correos manuales
+@app.route('/correo', methods=['GET', 'POST'])
+def correo_index():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    mensaje = None
+    error = None
+
+    if request.method == 'POST':
+        email_destino = request.form.get('email_destino')
+        asunto = request.form.get('asunto')
+        cuerpo = request.form.get('cuerpo')
+
+        if not (email_destino and asunto and cuerpo):
+            error = "Completa todos los campos."
+        else:
+            try:
+                # 1) Enviar correo
+                enviar_correo_gmail(email_destino, asunto, cuerpo)
+
+                # 2) Registrar envío en la tabla
+                conn = get_db_connection()
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    SELECT IDUSUARIO FROM USUARIO WHERE EMAIL = :1
+                """, (email_destino,))
+                row = cursor.fetchone()
+                idusuario_destino = row[0] if row else None
+
+                cursor.execute("""
+                    INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
+                    VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
+                """, (idusuario_destino, asunto, cuerpo))
+
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+                mensaje = "Correo enviado y registrado correctamente ✅"
+            except Exception as e:
+                print("Error enviando correo:", e)
+                error = f"Ocurrió un error al enviar el correo: {e}"
+
+    return render_template('correo_index.html', mensaje=mensaje, error=error)
+
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
+
 @app.route('/search')
 def search():
     return render_template('buscar.html')
 
+
 @app.route('/updat')
 def updat():
     return render_template('update.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
