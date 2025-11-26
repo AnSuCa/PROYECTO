@@ -109,13 +109,14 @@
     <div class="row g-3 mt-3">
         {% if productos %}
             {% for p in productos %}
-            <!-- p[0]=IDPRODUCTO, p[1]=NOMBRE, p[2]=DESCRIPCION, p[3]=ACTIVO, p[4]=CANTIDAD -->
+            {# p[0]=IDPRODUCTO, p[1]=NOMBRE, p[2]=DESCRIPCION, p[3]=ACTIVO,
+               p[4]=CANTIDAD, p[5]=NOMBRE_UNIDAD, p[6]=SIMBOLO_UNIDAD, p[7]=IDUNIDAD #}
             <div class="col-md-4">
                 <div class="card leche-card p-3">
                     <h5>{{ p[1] }}</h5>
                     <p class="mb-1">{{ p[2] }}</p>
                     <p class="mb-1">
-                        <strong>Cantidad:</strong> {{ p[4] }} unidades
+                        <strong>Cantidad:</strong> {{ p[4] }} {{ p[6] }}
                     </p>
 
                     {% if p[3] == 1 %}
@@ -178,6 +179,17 @@
                                 <div class="mb-2">
                                     <label class="form-label">Cantidad</label>
                                     <input type="number" name="cantidad" class="form-control" min="0" value="{{ p[4] }}">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Unidad de medida</label>
+                                    <select name="idunidad" class="form-select">
+                                        {% for u in unidades %}
+                                            <option value="{{ u[0] }}" {% if u[0] == p[7] %}selected{% endif %}>
+                                                {{ u[1] }} ({{ u[2] }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                             </div>
 
