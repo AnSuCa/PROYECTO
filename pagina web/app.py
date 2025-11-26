@@ -99,7 +99,7 @@ def user():
         """)
         categorias = cursor.fetchall()
 
-        # Unidades de medida
+        # Unidades
         cursor.execute("""
             SELECT IDUNIDAD, NOMBRE, SIMBOLO
             FROM UNIDADMEDIDA
@@ -128,6 +128,50 @@ def user():
         unidades=unidades,
         nombre=session.get('nombre')
     )
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        # Validación simple
+        if not nombre or not email or not password:
+            return render_template('register.html', error="Completa todos los campos")
+
+        # Encriptar contraseña
+        password_hash = generate_password_hash(password)
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            # Insertamos usuario. IDUSUARIO es IDENTITY, FECHAREGISTRO puede ser SYSTIMESTAMP,
+            # ACTIVO = 1 por defecto (ajusta según tu tabla).
+            cursor.execute("""
+                INSERT INTO USUARIO (NOMBRE, EMAIL, PASSWORDHASH, FECHAREGISTRO, ACTIVO)
+                VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
+            """, (nombre, email, password_hash))
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            # Mostrar mensaje de éxito
+            return render_template('register.html', mensaje="Usuario registrado exitosamente ✅")
+
+        except oracledb.IntegrityError:
+            # Por ejemplo si EMAIL es UNIQUE
+            return render_template('register.html', error="El correo ya está registrado")
+        except oracledb.Error as e:
+            print("Error Oracle en registro:", e)
+            return render_template('register.html', error=f"Error al registrar usuario: {e}")
+        except Exception as e:
+            print("Error general en registro:", e)
+            return render_template('register.html', error=f"Error inesperado: {e}")
+
+    # Si es GET, solo mostramos el formulario
+    return render_template('register.html')
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -331,11 +375,11 @@ def registrar_producto():
     try:
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
-        idcategoria = request.form.get('idcategoria') or 1
-        idunidad = request.form.get('idunidad') or 1
+        idcategoria = request.form.get('idcategoria')
+        idunidad = request.form.get('idunidad')
 
-        if not nombre:
-            return "El nombre es obligatorio"
+        if not (nombre and idcategoria and idunidad):
+            return "Faltan datos (nombre, categoría o unidad)"
 
         conn = get_db_connection()
         cursor = conn.cursor()

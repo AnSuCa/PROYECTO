@@ -2,21 +2,25 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Panel Usuario - Lácteos</title>
+    <title>Panel Usuario - Sistema Lácteos</title>
 
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
     <style>
         body { background: #e3f2fd; }
         .navbar { background-color: #0277bd; }
         .navbar a { color: white !important; }
+        .navbar-brand { font-weight: 600; }
 
         .leche-card {
             border-radius: 15px;
             box-shadow: 0px 5px 10px rgba(0,0,0,0.1);
         }
-        .card-footer-btns button {
-            margin-right: 5px;
+        .card-footer-btns button,
+        .card-footer-btns form {
+            margin-right: 4px;
         }
     </style>
 </head>
@@ -25,7 +29,7 @@
 <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand">Sistema Lácteos</a>
-        <div class="d-flex ms-auto">
+        <div class="d-flex ms-auto align-items-center">
             <span class="text-white me-3">Hola {{ nombre }}</span>
             <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Cerrar sesión</a>
         </div>
@@ -34,7 +38,7 @@
 
 <div class="container mt-4">
 
-    <!-- BOTÓN PARA REGISTRAR PRODUCTO -->
+    <!-- BOTÓN PARA ABRIR MODAL DE NUEVO PRODUCTO -->
     <button class="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#modalNuevoProducto">
         ➕ Registrar producto
     </button>
@@ -54,34 +58,36 @@
                             <label class="form-label">Nombre</label>
                             <input type="text" name="nombre" class="form-control" required>
                         </div>
+
                         <div class="mb-2">
                             <label class="form-label">Descripción</label>
                             <input type="text" name="descripcion" class="form-control">
                         </div>
+
                         <div class="mb-2">
-    <label class="form-label">Categoría</label>
-    <select name="idcategoria" class="form-select" required>
-        <option value="">-- Selecciona una categoría --</option>
-        {% for c in categorias %}
-            <option value="{{ c[0] }}">
-                {{ c[1] }} (ID {{ c[0] }})
-            </option>
-        {% endfor %}
-    </select>
-</div>
+                            <label class="form-label">Categoría</label>
+                            <select name="idcategoria" class="form-select" required>
+                                <option value="">-- Selecciona una categoría --</option>
+                                {% for c in categorias %}
+                                    <option value="{{ c[0] }}">
+                                        {{ c[1] }} (ID {{ c[0] }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-<div class="mb-2">
-    <label class="form-label">Unidad de medida</label>
-    <select name="idunidad" class="form-select" required>
-        <option value="">-- Selecciona una unidad --</option>
-        {% for u in unidades %}
-            <option value="{{ u[0] }}">
-                {{ u[1] }} ({{ u[2] }})  <!-- ej: Litro (L) -->
-            </option>
-        {% endfor %}
-    </select>
-</div>
-
+                        <div class="mb-2">
+                            <label class="form-label">Unidad de medida</label>
+                            <select name="idunidad" class="form-select" required>
+                                <option value="">-- Selecciona una unidad --</option>
+                                {% for u in unidades %}
+                                    <option value="{{ u[0] }}">
+                                        {{ u[1] }} ({{ u[2] }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
 
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-success">Guardar</button>
@@ -93,113 +99,121 @@
     </div>
 
     <!-- LISTADO DE PRODUCTOS -->
-    <h3>Productos registrados</h3>
+    <h3 class="mt-3">Productos registrados</h3>
 
     <div class="row g-3 mt-3">
-        {% for p in productos %}
-        <div class="col-md-4">
-            <div class="card leche-card p-3">
-                <h5>{{ p[1] }}</h5>
-                <p>{{ p[2] }}</p>
+        {% if productos %}
+            {% for p in productos %}
+            <div class="col-md-4">
+                <div class="card leche-card p-3">
+                    <h5>{{ p[1] }}</h5>
+                    <p>{{ p[2] }}</p>
 
-                {% if p[3] == 1 %}
-                    <span class="badge bg-success mb-2 w-100 text-center">Activo</span>
-                {% else %}
-                    <span class="badge bg-secondary mb-2 w-100 text-center">Inactivo</span>
-                {% endif %}
+                    {% if p[3] == 1 %}
+                        <span class="badge bg-success mb-2 w-100 text-center">Activo</span>
+                    {% else %}
+                        <span class="badge bg-secondary mb-2 w-100 text-center">Inactivo</span>
+                    {% endif %}
 
-                <div class="card-footer border-0 bg-white card-footer-btns">
-                    <!-- Botón Editar (abre modal) -->
-                    <button 
-                        class="btn btn-sm btn-outline-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalEditar{{ p[0] }}">
-                        Editar
-                    </button>
-
-                    <!-- Formulario Eliminar -->
-                    <form method="POST" 
-                          action="{{ url_for('eliminar_producto') }}" 
-                          style="display:inline;">
-                        <input type="hidden" name="idproducto" value="{{ p[0] }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            Eliminar
+                    <div class="card-footer border-0 bg-white card-footer-btns">
+                        <!-- Botón Editar -->
+                        <button
+                            class="btn btn-sm btn-outline-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalEditar{{ p[0] }}">
+                            Editar
                         </button>
-                    </form>
 
-                    <!-- Botón Enviar por correo (abre modal) -->
-                    <button 
-                        class="btn btn-sm btn-outline-success"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalCorreo{{ p[0] }}">
-                        Enviar por correo
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL EDITAR PRODUCTO -->
-        <div class="modal fade" id="modalEditar{{ p[0] }}" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="POST" action="{{ url_for('actualizar_producto') }}">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Editar producto</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-
-                        <div class="modal-body">
+                        <!-- Eliminar -->
+                        <form method="POST" action="{{ url_for('eliminar_producto') }}" style="display:inline;">
                             <input type="hidden" name="idproducto" value="{{ p[0] }}">
-                            <div class="mb-2">
-                                <label class="form-label">Nombre</label>
-                                <input type="text" name="nombre" class="form-control" value="{{ p[1] }}" required>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label">Descripción</label>
-                                <input type="text" name="descripcion" class="form-control" value="{{ p[2] }}">
-                            </div>
-                        </div>
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                Eliminar
+                            </button>
+                        </form>
 
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        </div>
-                    </form>
+                        <!-- Enviar por correo -->
+                        <button
+                            class="btn btn-sm btn-outline-success"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalCorreo{{ p[0] }}">
+                            Enviar por correo
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- MODAL ENVIAR POR CORREO -->
-        <div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Enviar producto por correo</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-
-                        <div class="modal-body">
-                            <input type="hidden" name="idproducto" value="{{ p[0] }}">
-                            <div class="mb-2">
-                                <label class="form-label">Correo destino</label>
-                                <input type="email" name="email_destino" class="form-control" required>
+            <!-- MODAL EDITAR PRODUCTO -->
+            <div class="modal fade" id="modalEditar{{ p[0] }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ url_for('actualizar_producto') }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Editar producto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <p class="small text-muted">
-                                Se enviará la información del producto <strong>{{ p[1] }}</strong>.
-                            </p>
-                        </div>
 
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-success">Registrar envío</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        </div>
-                    </form>
+                            <div class="modal-body">
+                                <input type="hidden" name="idproducto" value="{{ p[0] }}">
+
+                                <div class="mb-2">
+                                    <label class="form-label">Nombre</label>
+                                    <input type="text" name="nombre" class="form-control" value="{{ p[1] }}" required>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Descripción</label>
+                                    <input type="text" name="descripcion" class="form-control" value="{{ p[2] }}">
+                                </div>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {% endfor %}
+            <!-- MODAL ENVIAR POR CORREO -->
+            <div class="modal fade" id="modalCorreo{{ p[0] }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ url_for('enviar_producto_correo') }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Enviar producto por correo</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+
+                            <div class="modal-body">
+                                <input type="hidden" name="idproducto" value="{{ p[0] }}">
+                                <div class="mb-2">
+                                    <label class="form-label">Correo destino</label>
+                                    <input type="email" name="email_destino" class="form-control" required>
+                                </div>
+                                <p class="small text-muted">
+                                    Se enviará la información del producto <strong>{{ p[1] }}</strong>.
+                                </p>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-success">Registrar envío</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info mt-3">
+                    No hay productos registrados todavía.
+                </div>
+            </div>
+        {% endif %}
     </div>
 
 </div>

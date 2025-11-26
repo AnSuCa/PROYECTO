@@ -2,46 +2,151 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Registro</title>
+    <title>Registro - Sistema Lácteos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e3f2fd, #fff);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .register-card {
+            max-width: 460px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: none;
+            overflow: hidden;
+        }
+
+        .register-header {
+            background: linear-gradient(135deg, #4fc3f7, #0277bd);
+            color: #fff;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .register-header h3 {
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .register-header span {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .milk-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.75rem auto;
+            color: #0277bd;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .form-control:focus {
+            border-color: #0277bd;
+            box-shadow: 0 0 0 0.15rem rgba(2,119,189,0.25);
+        }
+
+        .btn-lacteos {
+            background-color: #0277bd;
+            border-color: #0277bd;
+        }
+
+        .btn-lacteos:hover {
+            background-color: #015a8c;
+            border-color: #015a8c;
+        }
+
+        .link-muted {
+            font-size: 0.9rem;
+        }
+
+        .badge-lacteo {
+            background-color: #e3f2fd;
+            color: #0277bd;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.8rem;
+        }
+    </style>
 </head>
 <body>
-    <h2>Registro de Usuario</h2>
 
-    <!-- Mensajes que vienen desde Flask -->
-    {% if mensaje %}
-        <p style="color: green;">{{ mensaje }}</p>
-    {% endif %}
+<div class="card register-card">
+    <div class="register-header">
+        <div class="milk-icon">
+            🧀
+        </div>
+        <h3>Crear cuenta</h3>
+        <span>Únete al sistema de control de productos lácteos</span>
+    </div>
 
-    {% if error %}
-        <p style="color: red;">{{ error }}</p>
-    {% endif %}
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Registro de usuario</h5>
+            <span class="badge-lacteo">Nuevo usuario</span>
+        </div>
 
-    <form method="POST" action="{{ url_for('register') }}">
-        <label>Nombre:</label><br>
-        <input type="text" name="nombre" placeholder="Nombre completo" required><br>
+        <!-- Mensajes desde Flask -->
+        {% if mensaje %}
+            <div class="alert alert-success py-2">
+                {{ mensaje }}
+            </div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger py-2">
+                {{ error }}
+            </div>
+        {% endif %}
 
-        <label>Correo:</label><br>
-        <input type="email" name="email" placeholder="Correo electrónico" required><br>
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="mb-3">
+                <label class="form-label">Nombre completo</label>
+                <input type="text" name="nombre" class="form-control" placeholder="Ej: Andrés Suárez" required>
+            </div>
 
-        <label>Contraseña:</label><br>
-        <input type="password" name="password" placeholder="Contraseña" required><br>
+            <div class="mb-3">
+                <label class="form-label">Correo electrónico</label>
+                <input type="email" name="email" class="form-control" placeholder="usuario@empresa.com" required>
+            </div>
 
-        <br>
-        <button type="submit">Registrarse</button>
-    </form>
+            <div class="mb-3">
+                <label class="form-label">Contraseña</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
 
-    <br>
+            <button type="submit" class="btn btn-lacteos w-100 mt-2">
+                Registrarse
+            </button>
+        </form>
 
-    <!-- Ir al login -->
-    <a href="{{ url_for('login') }}">
-        <button>Ir al Login</button>
-    </a>
+        <div class="mt-3 d-flex justify-content-between">
+            <a href="{{ url_for('login') }}" class="link-muted text-decoration-none">
+                ¿Ya tienes cuenta? <strong>Inicia sesión</strong>
+            </a>
+            <a href="{{ url_for('home') }}" class="link-muted text-decoration-none">
+                Volver al inicio
+            </a>
+        </div>
+    </div>
+</div>
 
-    <br><br>
-
-    <!-- Volver a la página principal -->
-    <a href="{{ url_for('home') }}">
-        <button>Regresar a la Página Principal</button>
-    </a>
 </body>
 </html>
