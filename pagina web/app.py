@@ -80,24 +80,30 @@ def get_db_connection():
 
 # --- Helper para enviar correo con Gmail ---
 def enviar_correo_gmail(destino, asunto, cuerpo):
-    from email.header import Header
-    from email.utils import formataddr
-
-    if not (GMAIL_USER and GMAIL_PASSWORD):
-        raise RuntimeError("Faltan GMAIL_USER o GMAIL_PASSWORD en .env")
+    host = os.environ.get("GMAIL_SMTP_HOST")
+    port = int(os.environ.get("GMAIL_SMTP_PORT"))
+    user = os.environ.get("GMAIL_USER")
+    password = os.environ.get("GMAIL_PASSWORD")
 
     msg = EmailMessage()
-    msg["From"] = formataddr(("Sistema Lácteos", GMAIL_USER))
+    msg["From"] = f"Sistema Lácteos <{user}>"
     msg["To"] = destino
-    msg["Subject"] = str(Header(asunto, "utf-8"))
-    msg.set_content(cuerpo, subtype="plain", charset="utf-8")
+    msg["Subject"] = asunto
 
-    with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT) as smtp:
-        smtp.starttls()
-        smtp.login(GMAIL_USER, GMAIL_PASSWORD)
-        smtp.send_message(msg)
+    # MUY IMPORTANTE para tu error de ñ y acentos 👇
+    msg.set_content(cuerpo, charset="utf-8")
 
+    try:
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()  # cifrado TLS
+            server.login(user, password)
+            server.send_message(msg)
 
+        print(f"✅ Correo enviado correctamente a {destino}")
+
+    except Exception as e:
+        print("❌ Error enviando correo:", e)
+        raise
 
 # Página principal
 @app.route('/')
@@ -477,9 +483,8 @@ def enviar_producto_correo():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Obtenemos datos del producto
         cursor.execute("""
-            SELECT NOMBRE, DESCRIPCION, CANTIDAD
+            SELECT NOMBRE, DESCRIPCION, CANTIDAD 
             FROM PRODUCTO
             WHERE IDPRODUCTO = :1
         """, (idproducto,))
@@ -490,39 +495,48 @@ def enviar_producto_correo():
             conn.close()
             return "Producto no encontrado"
 
-        nombre_prod, desc_prod, cant_prod = row
+        nombre_prod, desc_prod, cantidad = row
 
-        # Armamos asunto y cuerpo (con tildes sin problema)
         asunto = f"Información del producto: {nombre_prod}"
-        cuerpo = (
-            f"Producto: {nombre_prod}\n"
-            f"Descripción: {desc_prod}\n"
-            f"Cantidad: {cant_prod}"
-        )
+        cuerpo = f"""
+Hola,
 
-        # 1) Enviar correo real por Gmail
+Se te ha compartido un producto desde el Sistema Lácteos:
+
+Producto: {nombre_prod}
+Descripción: {desc_prod}
+Cantidad disponible: {cantidad}
+
+Saludos,
+Sistema Lácteos 🥛
+        """
+
+        # 1️⃣ ENVIAR EL CORREO REAL
         enviar_correo_gmail(email_destino, asunto, cuerpo)
 
-        # 2) Registrar envío en ENVIOCORREO
+        # 2️⃣ REGISTRAR EN BD SOLO SI EXISTE EL USUARIO
         cursor.execute("""
             SELECT IDUSUARIO FROM USUARIO WHERE EMAIL = :1
         """, (email_destino,))
         dest_row = cursor.fetchone()
-        idusuario_destino = dest_row[0] if dest_row else None
 
-        cursor.execute("""
-            INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
-            VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
-        """, (idusuario_destino, asunto, cuerpo))
+        if dest_row:
+            idusuario_destino = dest_row[0]
 
-        conn.commit()
+            cursor.execute("""
+                INSERT INTO ENVIOCORREO (IDUSUARIODESTINO, ASUNTO, CUERPO, FECHAENVIO, ENVIADO)
+                VALUES (:1, :2, :3, SYSTIMESTAMP, 1)
+            """, (idusuario_destino, asunto, cuerpo))
+
+            conn.commit()
+
         cursor.close()
         conn.close()
 
         return redirect(url_for('user'))
 
     except Exception as e:
-        print("Error registrando envío de correo:", e)
+        print("Error enviando producto por correo:", e)
         return f"Error al enviar producto por correo: {e}"
 
 # Página general para enviar correos manuales
