@@ -74,7 +74,10 @@ def get_db_connection():
 # Página principal
 @app.route('/')
 def home():
+    if 'idusuario' in session:
+        return redirect(url_for('user'))
     return render_template('index.html')
+
 
 # Dashboard de usuario
 @app.route('/user')
@@ -86,11 +89,21 @@ def user():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Productos
+        # Productos + unidad de medida
         cursor.execute("""
-            SELECT IDPRODUCTO, NOMBRE, DESCRIPCION, ACTIVO, CANTIDAD
-            FROM PRODUCTO
-            ORDER BY IDPRODUCTO
+            SELECT 
+                P.IDPRODUCTO,      -- 0
+                P.NOMBRE,          -- 1
+                P.DESCRIPCION,     -- 2
+                P.ACTIVO,          -- 3
+                P.CANTIDAD,        -- 4
+                U.NOMBRE,          -- 5 nombre unidad
+                U.SIMBOLO,         -- 6 símbolo unidad
+                P.IDUNIDAD         -- 7 idunidad
+            FROM PRODUCTO P
+            JOIN UNIDADMEDIDA U
+                ON P.IDUNIDAD = U.IDUNIDAD
+            ORDER BY P.IDPRODUCTO
         """)
         productos = cursor.fetchall()
 
@@ -102,7 +115,7 @@ def user():
         """)
         categorias = cursor.fetchall()
 
-        # Unidades
+        # Unidades (para los selects)
         cursor.execute("""
             SELECT IDUNIDAD, NOMBRE, SIMBOLO
             FROM UNIDADMEDIDA
@@ -131,6 +144,7 @@ def user():
         unidades=unidades,
         nombre=session.get('nombre')
     )
+
 
 # Registro de usuarios
 @app.route('/register', methods=['GET', 'POST'])
@@ -370,7 +384,8 @@ def actualizar_producto():
     idproducto = request.form.get('idproducto')
     nombre = request.form.get('nombre')
     descripcion = request.form.get('descripcion')
-    cantidad = request.form.get('cantidad')  # nuevo
+    cantidad = request.form.get('cantidad')
+    idunidad = request.form.get('idunidad')  # 👈 nuevo
 
     try:
         conn = get_db_connection()
@@ -380,9 +395,10 @@ def actualizar_producto():
             UPDATE PRODUCTO
             SET NOMBRE = :1,
                 DESCRIPCION = :2,
-                CANTIDAD = :3
-            WHERE IDPRODUCTO = :4
-        """, (nombre, descripcion, cantidad, idproducto))
+                CANTIDAD = :3,
+                IDUNIDAD = :4
+            WHERE IDPRODUCTO = :5
+        """, (nombre, descripcion, cantidad, idunidad, idproducto))
 
         conn.commit()
         cursor.close()
@@ -392,7 +408,6 @@ def actualizar_producto():
     except Exception as e:
         print("Error actualizando producto:", e)
         return f"Error al actualizar producto: {e}"
-
 
 # Eliminar producto desde el dashboard
 @app.route('/producto/eliminar', methods=['POST'])

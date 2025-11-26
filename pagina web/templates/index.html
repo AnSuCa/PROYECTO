@@ -1,26 +1,91 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inicio</title>
+  <meta charset="UTF-8">
+  <title>Sistema Lácteos</title>
 
-    <!-- Bootstrap opcional -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #e3f2fd, #ffffff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .home-card {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+    }
+
+    .icono-lacteo {
+      font-size: 60px;
+      background: #0277bd;
+      color: white;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px auto;
+    }
+
+    .btn-lacteos {
+      background-color: #0277bd;
+      border: none;
+    }
+
+    .btn-lacteos:hover {
+      background-color: #015a8c;
+    }
+
+    .descripcion {
+      font-size: 1rem;
+      color: #555;
+      margin-bottom: 25px;
+    }
+  </style>
 </head>
+<body>
 
-<body class="bg-light">
-
-    <div class="container text-center mt-5">
-
-        <h1 class="mb-4">Bienvenido</h1>
-
-        <p class="lead">
-            Esta es una página de inicio sencilla con Flask.
-        </p>
-<a href="/login" class="btn btn-primary mt-3">Ir al Login</a>
-        
+  <div class="home-card">
+    <div class="icono-lacteo">
+      🥛
     </div>
+
+    <h1 class="mb-3">Sistema de Control Lácteo</h1>
+
+    <p class="descripcion">
+      Gestiona tu inventario de productos lácteos de forma fácil, moderna y segura.
+      Registra, consulta, edita y controla tu stock en tiempo real.
+    </p>
+
+    <div class="d-grid gap-2">
+      <a href="{{ url_for('login') }}" class="btn btn-lacteos text-white btn-lg">
+        Iniciar Sesión
+      </a>
+
+      <a href="{{ url_for('register') }}" class="btn btn-outline-secondary btn-lg">
+        Registrarse
+      </a>
+    </div>
+
+    <p class="mt-4 text-muted small">
+      © 2025 Sistema Lácteos – Proyecto académico
+    </p>
+  </div>
 
 </body>
 </html>
