@@ -7,10 +7,11 @@
 </head>
 <body>
     <h1>Id a eliminar</h1>
-    <form action="/delete" method="POST">
-        <label>Id</label>
-        <input type="number" name="llav" required>
-        <button type="submit">eliminar</button>
-    </form>
+<form action="{{ url_for('delete') }}" method="POST">
+    <label>ID del producto</label>
+    <input type="number" name="idproducto" required>
+    <button type="submit">Eliminar</button>
+</form>
+
 </body>
 </html>

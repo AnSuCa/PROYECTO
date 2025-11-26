@@ -7,14 +7,15 @@
 </head>
 <body>
     <h1>id a actualizar</h1>
-    <form action="/update" method="POST">
-        <label>ID</label>
-        <input type="number" name="llave" required>
-        <label>nuevo nombre</label>
-        <input type="text" name="nname" >
-        <label>nueva descripcion</label>
-        <input type="text" name="ndesc"  required>
-        <button type="submit">actualizar</button>
-    </form>
+<form action="{{ url_for('update') }}" method="POST">
+    <label>ID</label>
+    <input type="number" name="llave" required>
+    <label>Nuevo nombre</label>
+    <input type="text" name="nname">
+    <label>Nueva descripción</label>
+    <input type="text" name="ndesc" required>
+    <button type="submit">Actualizar</button>
+</form>
+
 </body>
 </html>

@@ -73,8 +73,132 @@ def get_db_connection():
 @app.route('/')
 def home():
     return render_template('index.html')
-#Registro
-@app.route('/register', methods=['GET', 'POST'])
+
+@app.route('/user')
+def user():
+    if 'idusuario' not in session:
+        return redirect(url_for('login'))
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT IDPRODUCTO, NOMBRE, DESCRIPCION, ACTIVO
+            FROM PRODUCTO
+        """)
+
+        productos = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+    except oracledb.Error as e:
+        print("Error Oracle al listar productos:", e)
+        productos = []   # para evitar que falle el render
+
+    except Exception as e:
+        print("Error general:", e)
+        productos = []
+
+    # ✨ IMPORTANTE: siempre devolver una respuesta
+    return render_template(
+        'dashboar.html',
+        productos=productos,
+        nombre=session.get('nombre')
+
+    )
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+    if session.get('categoria') != 'admin':
+        return "Acceso denegado"
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        if request.method == 'POST':
+            nombre = request.form.get('nombre')
+            descripcion = request.form.get('descripcion')
+            idcategoria = request.form.get('idcategoria')
+            idunidad = request.form.get('idunidad')
+
+            # Ajusta si IDPRODUCTO usa secuencia/IDENTITY.
+            cursor.execute("""
+                INSERT INTO PRODUCTO (NOMBRE, DESCRIPCION, IDCATEGORIA, IDUNIDAD, ACTIVO, IDUSUARIOCREADOR)
+                VALUES (:1, :2, :3, :4, 1, :5)
+            """, (nombre, descripcion, idcategoria, idunidad, session['idusuario']))
+            conn.commit()
+
+        cursor.execute("""
+            SELECT IDPRODUCTO, NOMBRE, DESCRIPCION, ACTIVO
+            FROM PRODUCTO
+            ORDER BY IDPRODUCTO
+        """)
+        productos = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return render_template('admin_temp.html', productos=productos)
+    except oracledb.Error as e:
+        print("Error Oracle en admin:", e)
+        return f"Error en la sección de administración: {e}"
+    except Exception as e:
+        print("Error general en admin:", e)
+        return f"Error inesperado en administración: {e}"
+
+@app.route('/delete', methods=['POST'])
+def delete():
+    if session.get('categoria') != 'admin':
+        return "Acceso denegado"
+
+    try:
+        idproducto = request.form.get('idproducto')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM PRODUCTO WHERE IDPRODUCTO = :1", (idproducto,))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+        return redirect(url_for('admin'))
+    except oracledb.Error as e:
+        print("Error Oracle en delete:", e)
+        return f"Error al eliminar: {e}"
+    except Exception as e:
+        print("Error general en delete:", e)
+        return f"Error inesperado al eliminar: {e}"
+
+@app.route('/update', methods=['POST'])
+def update():
+    if session.get('categoria') != 'admin':
+        return "Acceso denegado"
+
+    try:
+        idproducto = request.form.get('llave')
+        nombre = request.form.get('nname')
+        desc = request.form.get('ndesc')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE PRODUCTO
+            SET NOMBRE = :1, DESCRIPCION = :2
+            WHERE IDPRODUCTO = :3
+        """, (nombre, desc, idproducto))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+        return redirect(url_for('admin'))
+    except oracledb.Error as e:
+        print("Error Oracle en update:", e)
+        return f"Error al actualizar: {e}"
+    except Exception as e:
+        print("Error general en update:", e)
+        return f"Error inesperado al actualizar: {e}"
+
 def register():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
@@ -176,137 +300,48 @@ def login():
             return render_template('login.html', error=f"Error inesperado: {e}")
     else:
         return render_template('login.html')
-
-
-@app.route('/admin', methods=['GET', 'POST'])
-def admin():
-    if session.get('categoria') != 'admin':
-        return "Acceso denegado"
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        if request.method == 'POST':
-            nombre = request.form['name']
-            descp = request.form['description']
-            id_item = request.form['id']
-
-            cursor.execute(
-                """
-                INSERT INTO items (nombre, descripcion, id)
-                VALUES (:1, :2, :3)
-                """,
-                (nombre, descp, id_item)
-            )
-            conn.commit()
-
-        cursor.execute("SELECT * FROM producto")
-        items = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return render_template('admin_temp.html', items=items)
-
-    except oracledb.Error as e:
-        print("Error Oracle en admin:", e)
-        return f"Error en la sección de administración: {e}"
-    except Exception as e:
-        print("Error general en admin:", e)
-        return f"Error inesperado en administración: {e}"
-
-
-@app.route('/user')
-def user():
+    
+#Registrar Productos
+@app.route('/registrar_producto', methods=['POST'])
+def registrar_producto():
     if 'idusuario' not in session:
         return redirect(url_for('login'))
 
-    if session.get('categoria') != 'usuario':
-        return "Acceso denegado"
-
     try:
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        idcategoria = request.form.get('idcategoria')
+        idunidad = request.form.get('idunidad')
+
+        if not nombre:
+            return "El nombre es obligatorio"
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM producto")
-        items = cursor.fetchall()
+        cursor.execute("""
+            INSERT INTO PRODUCTO 
+            (NOMBRE, DESCRIPCION, IDCATEGORIA, IDUNIDAD, ACTIVO, IDUSUARIOCREADOR)
+            VALUES (:1, :2, :3, :4, 1, :5)
+        """, (
+            nombre, 
+            descripcion, 
+            idcategoria, 
+            idunidad, 
+            session['idusuario']
+        ))
 
-        cursor.close()
-        conn.close()
-
-        return render_template('dashboar.html', 
-                               items=items, 
-                               nombre=session.get('nombre'))
-    except oracledb.Error as e:
-        print("Error Oracle en user:", e)
-        return f"Error en la sección de usuario: {e}"
-    except Exception as e:
-        print("Error general en user:", e)
-        return f"Error inesperado en usuario: {e}"
-
-
-
-@app.route('/delete', methods=['GET', 'POST'])
-def delete():
-    if session.get('categoria') != 'admin': 
-        return "Acceso denegado"
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        if request.method == 'POST':
-            ide = request.form['llav']
-            cursor.execute("DELETE FROM producto WHERE id = :1", (ide,))
-            conn.commit()
-
-        cursor.execute("SELECT * FROM producto")
-        items = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return render_template('admin_temp.html', items=items)
-
-    except oracledb.Error as e:
-        print("Error Oracle en delete:", e)
-        return f"Error al eliminar: {e}"
-    except Exception as e:
-        print("Error general en delete:", e)
-        return f"Error inesperado al eliminar: {e}"
-
-@app.route('/update', methods=['POST'])
-def update():
-    if session.get('categoria') != 'admin': 
-        return "Acceso denegado"
-
-    try:
-        nombre = request.form['nname']
-        desc = request.form['ndesc']
-        id_item = request.form['llave']
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE producto
-            SET nombre = :1, descripcion = :2
-            WHERE id = :3
-            """,
-            (nombre, desc, id_item)
-        )
         conn.commit()
-
-        cursor.execute("SELECT * FROM items")
-        items = cursor.fetchall()
         cursor.close()
         conn.close()
-        return render_template('admin_temp.html', items=items)
 
-    except oracledb.Error as e:
-        print("Error Oracle en update:", e)
-        return f"Error al actualizar: {e}"
+        return redirect(url_for('user'))
+
     except Exception as e:
-        print("Error general en update:", e)
-        return f"Error inesperado al actualizar: {e}"
+        print("Error registrando producto:", e)
+        return f"Error al registrar producto: {e}"
 
+    
 @app.route('/logout')
 def logout():
     session.clear()
