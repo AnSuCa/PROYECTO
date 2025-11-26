@@ -87,6 +87,11 @@
                                 {% endfor %}
                             </select>
                         </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Cantidad inicial</label>
+                            <input type="number" name="cantidad" min="0" class="form-control" value="0">
+                        </div>
                     </div>
 
                     <div class="modal-footer">
@@ -104,10 +109,14 @@
     <div class="row g-3 mt-3">
         {% if productos %}
             {% for p in productos %}
+            <!-- p[0]=IDPRODUCTO, p[1]=NOMBRE, p[2]=DESCRIPCION, p[3]=ACTIVO, p[4]=CANTIDAD -->
             <div class="col-md-4">
                 <div class="card leche-card p-3">
                     <h5>{{ p[1] }}</h5>
-                    <p>{{ p[2] }}</p>
+                    <p class="mb-1">{{ p[2] }}</p>
+                    <p class="mb-1">
+                        <strong>Cantidad:</strong> {{ p[4] }} unidades
+                    </p>
 
                     {% if p[3] == 1 %}
                         <span class="badge bg-success mb-2 w-100 text-center">Activo</span>
@@ -164,6 +173,11 @@
                                 <div class="mb-2">
                                     <label class="form-label">Descripción</label>
                                     <input type="text" name="descripcion" class="form-control" value="{{ p[2] }}">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Cantidad</label>
+                                    <input type="number" name="cantidad" class="form-control" min="0" value="{{ p[4] }}">
                                 </div>
                             </div>
 
