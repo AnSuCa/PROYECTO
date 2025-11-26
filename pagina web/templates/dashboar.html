@@ -59,14 +59,29 @@
                             <input type="text" name="descripcion" class="form-control">
                         </div>
                         <div class="mb-2">
-                            <label class="form-label">ID Categoría</label>
-                            <input type="number" name="idcategoria" class="form-control">
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">ID Unidad</label>
-                            <input type="number" name="idunidad" class="form-control">
-                        </div>
-                    </div>
+    <label class="form-label">Categoría</label>
+    <select name="idcategoria" class="form-select" required>
+        <option value="">-- Selecciona una categoría --</option>
+        {% for c in categorias %}
+            <option value="{{ c[0] }}">
+                {{ c[1] }} (ID {{ c[0] }})
+            </option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="mb-2">
+    <label class="form-label">Unidad de medida</label>
+    <select name="idunidad" class="form-select" required>
+        <option value="">-- Selecciona una unidad --</option>
+        {% for u in unidades %}
+            <option value="{{ u[0] }}">
+                {{ u[1] }} ({{ u[2] }})  <!-- ej: Litro (L) -->
+            </option>
+        {% endfor %}
+    </select>
+</div>
+
 
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-success">Guardar</button>

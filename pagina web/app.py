@@ -83,31 +83,52 @@ def user():
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Productos
         cursor.execute("""
             SELECT IDPRODUCTO, NOMBRE, DESCRIPCION, ACTIVO
             FROM PRODUCTO
+            ORDER BY IDPRODUCTO
         """)
-
         productos = cursor.fetchall()
+
+        # Categorías
+        cursor.execute("""
+            SELECT IDCATEGORIA, NOMBRE
+            FROM CATEGORIAPRODUCTO
+            ORDER BY NOMBRE
+        """)
+        categorias = cursor.fetchall()
+
+        # Unidades de medida
+        cursor.execute("""
+            SELECT IDUNIDAD, NOMBRE, SIMBOLO
+            FROM UNIDADMEDIDA
+            ORDER BY NOMBRE
+        """)
+        unidades = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
     except oracledb.Error as e:
-        print("Error Oracle al listar productos:", e)
-        productos = []   # para evitar que falle el render
-
+        print("Error Oracle al listar datos:", e)
+        productos = []
+        categorias = []
+        unidades = []
     except Exception as e:
         print("Error general:", e)
         productos = []
+        categorias = []
+        unidades = []
 
-    # ✨ IMPORTANTE: siempre devolver una respuesta
     return render_template(
         'dashboar.html',
         productos=productos,
+        categorias=categorias,
+        unidades=unidades,
         nombre=session.get('nombre')
-
     )
+
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if session.get('categoria') != 'admin':
